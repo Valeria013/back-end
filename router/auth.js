@@ -21,7 +21,7 @@ authRouter.post('/login', async (req, res) => {
 
   if (!user) {
     console.log('email não cadastrado: ', email)
-    res.status(400).send('User or password invalid')
+    res.status(400).send('Usuário ou email invalidos')
   }
 
 
@@ -35,23 +35,42 @@ authRouter.post('/login', async (req, res) => {
       token
     })
   } else {
-    res.status(400).send('User or password invalid')
+    res.status(400).send('Usuário ou email invalidos')
   }
 
 })
 
 
-authRouter.post('/register', async (req, res) => {
-  const user = req.body
-  const salt = bcrypt.genSaltSync(saltRounds);
-  const hash = bcrypt.hashSync(req.body.password, salt);
-  user.password = hash
-  const userSaved = await prisma.user.create(
-    {
-      data: user
-    }
-  )
-  res.send(userSaved)
-})
+authRouter.post('/signup', async (req, res) => {
+  const { name, email, password } = req.body;
 
-export default authRouter
+  if (!name || !email || !password) {
+    return res.status(400).json({ message: 'Todos os campos são obrigatórios' });
+  }
+
+  try {
+    // Verifica se o email já está em uso
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email já está em uso' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+      },
+    });
+    res.status(201).json(newUser);
+  } catch (error) {
+    console.error('Erro ao registrar usuário:', error);
+    res.status(500).json({ message: 'Erro ao registrar usuário' });
+  }
+});
+
+export default authRouter;
